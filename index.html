@@ -1,71 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blog Admin Panel</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blog Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
   <style>
     body {
-      font-family: 'Poppins', sans-serif;
       margin: 0;
-      padding: 0;
+      font-family: 'Poppins', sans-serif;
       background-color: #121212;
-      color: #fff;
+      color: white;
     }
-    header {
+    .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1em;
-      background-color: #1e1e1e;
+      padding: 1rem;
+      background-color: #1f1f1f;
     }
-    h1 {
-      margin: 0;
-      font-size: 1.5em;
-    }
-    #clearAllBtn {
-      background: #e74c3c;
-      border: none;
-      color: white;
-      padding: 0.5em 1em;
-      border-radius: 5px;
-      cursor: pointer;
+    .posts {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
     }
     .post {
-      background-color: #2c2c2c;
-      margin: 1em;
-      padding: 1em;
+      background-color: #1e1e1e;
       border-radius: 8px;
-      width: calc(100% - 2em);
+      padding: 1rem;
+      width: 100%;
     }
-    .post a {
-      color: #4da6ff;
-      word-break: break-all;
+    .post h3 {
+      margin: 0 0 0.5rem 0;
+    }
+    .post p {
+      margin: 0.5rem 0;
+      word-wrap: break-word;
     }
     .timestamp {
-      font-size: 0.8em;
-      color: #bbb;
+      font-size: 0.8rem;
+      color: #aaa;
     }
-    .deleteBtn {
-      background-color: #c0392b;
+    .delete-btn {
+      margin-top: 0.5rem;
+      background-color: #ff4d4d;
       color: white;
       border: none;
-      padding: 0.3em 0.7em;
+      padding: 0.5rem;
       border-radius: 5px;
-      float: right;
       cursor: pointer;
+    }
+    .clear-btn {
+      background: #ff4d4d;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    a {
+      color: #81c8ff;
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Blog Admin</h1>
-    <button id="clearAllBtn">Clear All</button>
-  </header>
-  <main id="postList"></main>
+  <div class="header">
+    <h2>Blog Admin</h2>
+    <button class="clear-btn" onclick="clearAllPosts()">Clear All</button>
+  </div>
+  <div class="posts" id="posts"></div>
 
-  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
@@ -83,45 +88,56 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const postRef = ref(db, "posts");
-
-    const postList = document.getElementById("postList");
-
-    function makeLinksClickable(text) {
-      return text.replace(/(https:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-    }
+    const postsRef = ref(db, 'posts');
 
     function renderPosts(data) {
-      postList.innerHTML = "";
-      const posts = data.val();
-      if (!posts) return;
-      const keys = Object.keys(posts).reverse();
-      keys.forEach((key) => {
-        const { title, description, timestamp } = posts[key];
-        const postDiv = document.createElement("div");
-        postDiv.className = "post";
+      const postsContainer = document.getElementById('posts');
+      postsContainer.innerHTML = '';
+      const posts = Object.entries(data || {}).reverse();
 
-        postDiv.innerHTML = `
-          <button class="deleteBtn" onclick="deletePost('${key}')">Delete</button>
-          <h3>${title}</h3>
-          <p>${makeLinksClickable(description)}</p>
-          <div class="timestamp">${new Date(timestamp).toLocaleString()}</div>
-        `;
-        postList.appendChild(postDiv);
+      posts.forEach(([key, post]) => {
+        const postEl = document.createElement('div');
+        postEl.className = 'post';
+
+        const title = document.createElement('h3');
+        title.textContent = post.title;
+
+        const desc = document.createElement('p');
+        desc.innerHTML = post.description.replace(/(https:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+
+        const timestamp = document.createElement('div');
+        timestamp.className = 'timestamp';
+        timestamp.textContent = new Date(post.timestamp || Date.now()).toLocaleString();
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Delete';
+        delBtn.className = 'delete-btn';
+        delBtn.onclick = () => remove(ref(db, 'posts/' + key));
+
+        postEl.appendChild(title);
+        postEl.appendChild(desc);
+        if (post.audioURL) {
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          audio.src = post.audioURL;
+          postEl.appendChild(audio);
+        }
+        postEl.appendChild(timestamp);
+        postEl.appendChild(delBtn);
+
+        postsContainer.appendChild(postEl);
       });
     }
 
-    window.deletePost = function (key) {
-      remove(ref(db, `posts/${key}`));
-    };
+    onValue(postsRef, snapshot => {
+      renderPosts(snapshot.val());
+    });
 
-    document.getElementById("clearAllBtn").onclick = () => {
-      if (confirm("Are you sure you want to delete ALL posts?")) {
-        remove(postRef);
+    function clearAllPosts() {
+      if (confirm('Are you sure you want to delete ALL posts?')) {
+        remove(postsRef);
       }
-    };
-
-    onValue(postRef, renderPosts);
+    }
   </script>
 </body>
 </html>
