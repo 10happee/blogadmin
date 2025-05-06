@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Admin Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #121212;
+      color: #fff;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1em;
+      background-color: #1e1e1e;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.5em;
+    }
+    #clearAllBtn {
+      background: #e74c3c;
+      border: none;
+      color: white;
+      padding: 0.5em 1em;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .post {
+      background-color: #2c2c2c;
+      margin: 1em;
+      padding: 1em;
+      border-radius: 8px;
+      width: calc(100% - 2em);
+    }
+    .post a {
+      color: #4da6ff;
+      word-break: break-all;
+    }
+    .timestamp {
+      font-size: 0.8em;
+      color: #bbb;
+    }
+    .deleteBtn {
+      background-color: #c0392b;
+      color: white;
+      border: none;
+      padding: 0.3em 0.7em;
+      border-radius: 5px;
+      float: right;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Blog Admin</h1>
+    <button id="clearAllBtn">Clear All</button>
+  </header>
+  <main id="postList"></main>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDErOzCKFceg7Jzci80jTVJT5tVcsRKb4E",
+      authDomain: "happeemusicblog.firebaseapp.com",
+      databaseURL: "https://happeemusicblog-default-rtdb.firebaseio.com",
+      projectId: "happeemusicblog",
+      storageBucket: "happeemusicblog.appspot.com",
+      messagingSenderId: "452113598802",
+      appId: "1:452113598802:web:334fd95fadfe4bbd16d28b",
+      measurementId: "G-MRJ6M3B5FG"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const postRef = ref(db, "posts");
+
+    const postList = document.getElementById("postList");
+
+    function makeLinksClickable(text) {
+      return text.replace(/(https:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+    }
+
+    function renderPosts(data) {
+      postList.innerHTML = "";
+      const posts = data.val();
+      if (!posts) return;
+      const keys = Object.keys(posts).reverse();
+      keys.forEach((key) => {
+        const { title, description, timestamp } = posts[key];
+        const postDiv = document.createElement("div");
+        postDiv.className = "post";
+
+        postDiv.innerHTML = `
+          <button class="deleteBtn" onclick="deletePost('${key}')">Delete</button>
+          <h3>${title}</h3>
+          <p>${makeLinksClickable(description)}</p>
+          <div class="timestamp">${new Date(timestamp).toLocaleString()}</div>
+        `;
+        postList.appendChild(postDiv);
+      });
+    }
+
+    window.deletePost = function (key) {
+      remove(ref(db, `posts/${key}`));
+    };
+
+    document.getElementById("clearAllBtn").onclick = () => {
+      if (confirm("Are you sure you want to delete ALL posts?")) {
+        remove(postRef);
+      }
+    };
+
+    onValue(postRef, renderPosts);
+  </script>
+</body>
+</html>
