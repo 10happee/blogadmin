@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Blog Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet"/>
   <style>
     body {
       margin: 0;
@@ -27,6 +27,9 @@
       border-radius: 5px;
       cursor: pointer;
     }
+    button:hover {
+      background: #444;
+    }
     .posts {
       padding: 16px;
       display: flex;
@@ -39,23 +42,22 @@
       border-radius: 8px;
       width: 100%;
     }
-    .post audio {
-      margin-top: 8px;
-      width: 100%;
+    .post h3 {
+      margin: 0 0 8px;
+    }
+    .post p {
+      margin: 8px 0;
+      word-break: break-all;
     }
     .post time {
       font-size: 0.8em;
       color: #aaa;
+      display: block;
+      margin-bottom: 8px;
     }
-    .comments {
-      margin-top: 12px;
-      border-top: 1px solid #333;
-      padding-top: 8px;
-    }
-    .comment {
-      font-size: 0.9em;
-      margin-top: 4px;
-      color: #ccc;
+    .post audio {
+      width: 100%;
+      margin: 8px 0;
     }
     a {
       color: #4eaaff;
@@ -70,11 +72,11 @@
   </header>
   <main class="posts" id="postsContainer"></main>
 
-  <!-- Firebase -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getDatabase, ref, onValue, remove, set } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+    // — your Firebase config —
     const firebaseConfig = {
       apiKey: "AIzaSyDErOzCKFceg7Jzci80jTVJT5tVcsRKb4E",
       authDomain: "happeemusicblog.firebaseapp.com",
@@ -86,57 +88,56 @@
       measurementId: "G-MRJ6M3B5FG"
     };
 
+    // Initialize
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const postsRef = ref(db, "posts");
 
-    const postsContainer = document.getElementById("postsContainer");
+    // 👉 Point at the path where your live posts live
+    const postsRef = ref(db, "blog_posts");
 
-    function formatTextWithLinks(text) {
+    const container = document.getElementById("postsContainer");
+
+    function linkify(text) {
       return text.replace(/(https:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
     }
 
     function renderPost(id, data) {
-      const div = document.createElement("div");
-      div.className = "post";
-      div.innerHTML = `
-        <h3>${data.title || "Untitled"}</h3>
-        <p>${formatTextWithLinks(data.description || "")}</p>
-        <time>${new Date(data.timestamp || Date.now()).toLocaleString()}</time>
-        ${data.audio ? `<audio controls src="${data.audio}"></audio>` : ""}
-        <div class="comments">
-          <strong>Comments:</strong>
-          ${data.comments ? Object.entries(data.comments).map(([_, c]) => `
-            <div class="comment">
-              ${formatTextWithLinks(c.text)} — <time>${new Date(c.timestamp).toLocaleString()}</time>
-            </div>`).join("") : "<div class='comment'>No comments</div>"}
-        </div>
+      const el = document.createElement("div");
+      el.className = "post";
+      el.innerHTML = `
+        <h3>${data.title || ""}</h3>
+        <time>${new Date(data.timestamp || 0).toLocaleString()}</time>
+        <p>${linkify(data.description || "")}</p>
+        ${data.audioData ? `<audio controls src="${data.audioData}"></audio>` : ""}
         <button onclick="deletePost('${id}')">Delete</button>
       `;
-      postsContainer.appendChild(div);
+      container.appendChild(el);
     }
 
+    // Listen for all posts, newest first
     onValue(postsRef, snapshot => {
-      postsContainer.innerHTML = "";
-      const data = snapshot.val();
-      if (data) {
-        const sorted = Object.entries(data).sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
-        sorted.forEach(([id, post]) => renderPost(id, post));
-      } else {
-        postsContainer.innerHTML = "<p>No posts available.</p>";
+      container.innerHTML = "";
+      const posts = snapshot.val();
+      if (!posts) {
+        container.innerHTML = "<p>No posts available.</p>";
+        return;
       }
+      // Sort by timestamp descending
+      Object.entries(posts)
+        .sort(([,a],[,b]) => (b.timestamp || 0) - (a.timestamp || 0))
+        .forEach(([id, data]) => renderPost(id, data));
     });
 
-    window.deletePost = function(id) {
-      if (confirm("Delete this post?")) {
-        remove(ref(db, `posts/${id}`));
-      }
+    // Delete individual post
+    window.deletePost = id => {
+      if (!confirm("Delete this post?")) return;
+      remove(ref(db, `blog_posts/${id}`));
     };
 
-    window.clearAll = function() {
-      if (confirm("Clear all blog posts?")) {
-        remove(postsRef);
-      }
+    // Clear all posts
+    window.clearAll = () => {
+      if (!confirm("Are you sure you want to delete ALL posts?")) return;
+      remove(postsRef);
     };
   </script>
 </body>
