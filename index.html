@@ -2,78 +2,78 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Blog Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet"/>
   <style>
     body {
       margin: 0;
       font-family: 'Poppins', sans-serif;
       background-color: #121212;
-      color: white;
+      color: #fff;
     }
-    .header {
+    header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      padding: 1rem;
-      background-color: #1f1f1f;
+      padding: 16px;
+      background: #1f1f1f;
+      border-bottom: 1px solid #333;
+    }
+    button {
+      background: #333;
+      border: none;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 5px;
+      cursor: pointer;
     }
     .posts {
-      padding: 1rem;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 16px;
     }
     .post {
-      background-color: #1e1e1e;
+      background: #1f1f1f;
+      padding: 16px;
       border-radius: 8px;
-      padding: 1rem;
       width: 100%;
     }
-    .post h3 {
-      margin: 0 0 0.5rem 0;
+    .post audio {
+      margin-top: 8px;
+      width: 100%;
     }
-    .post p {
-      margin: 0.5rem 0;
-      word-wrap: break-word;
-    }
-    .timestamp {
-      font-size: 0.8rem;
+    .post time {
+      font-size: 0.8em;
       color: #aaa;
     }
-    .delete-btn {
-      margin-top: 0.5rem;
-      background-color: #ff4d4d;
-      color: white;
-      border: none;
-      padding: 0.5rem;
-      border-radius: 5px;
-      cursor: pointer;
+    .comments {
+      margin-top: 12px;
+      border-top: 1px solid #333;
+      padding-top: 8px;
     }
-    .clear-btn {
-      background: #ff4d4d;
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 5px;
-      cursor: pointer;
+    .comment {
+      font-size: 0.9em;
+      margin-top: 4px;
+      color: #ccc;
     }
     a {
-      color: #81c8ff;
+      color: #4eaaff;
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
-  <div class="header">
+  <header>
     <h2>Blog Admin</h2>
-    <button class="clear-btn" onclick="clearAllPosts()">Clear All</button>
-  </div>
-  <div class="posts" id="posts"></div>
+    <button onclick="clearAll()">Clear All</button>
+  </header>
+  <main class="posts" id="postsContainer"></main>
 
+  <!-- Firebase -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getDatabase, ref, onValue, remove, set } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDErOzCKFceg7Jzci80jTVJT5tVcsRKb4E",
@@ -88,56 +88,56 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const postsRef = ref(db, 'posts');
+    const postsRef = ref(db, "posts");
 
-    function renderPosts(data) {
-      const postsContainer = document.getElementById('posts');
-      postsContainer.innerHTML = '';
-      const posts = Object.entries(data || {}).reverse();
+    const postsContainer = document.getElementById("postsContainer");
 
-      posts.forEach(([key, post]) => {
-        const postEl = document.createElement('div');
-        postEl.className = 'post';
+    function formatTextWithLinks(text) {
+      return text.replace(/(https:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+    }
 
-        const title = document.createElement('h3');
-        title.textContent = post.title;
-
-        const desc = document.createElement('p');
-        desc.innerHTML = post.description.replace(/(https:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-
-        const timestamp = document.createElement('div');
-        timestamp.className = 'timestamp';
-        timestamp.textContent = new Date(post.timestamp || Date.now()).toLocaleString();
-
-        const delBtn = document.createElement('button');
-        delBtn.textContent = 'Delete';
-        delBtn.className = 'delete-btn';
-        delBtn.onclick = () => remove(ref(db, 'posts/' + key));
-
-        postEl.appendChild(title);
-        postEl.appendChild(desc);
-        if (post.audioURL) {
-          const audio = document.createElement('audio');
-          audio.controls = true;
-          audio.src = post.audioURL;
-          postEl.appendChild(audio);
-        }
-        postEl.appendChild(timestamp);
-        postEl.appendChild(delBtn);
-
-        postsContainer.appendChild(postEl);
-      });
+    function renderPost(id, data) {
+      const div = document.createElement("div");
+      div.className = "post";
+      div.innerHTML = `
+        <h3>${data.title || "Untitled"}</h3>
+        <p>${formatTextWithLinks(data.description || "")}</p>
+        <time>${new Date(data.timestamp || Date.now()).toLocaleString()}</time>
+        ${data.audio ? `<audio controls src="${data.audio}"></audio>` : ""}
+        <div class="comments">
+          <strong>Comments:</strong>
+          ${data.comments ? Object.entries(data.comments).map(([_, c]) => `
+            <div class="comment">
+              ${formatTextWithLinks(c.text)} — <time>${new Date(c.timestamp).toLocaleString()}</time>
+            </div>`).join("") : "<div class='comment'>No comments</div>"}
+        </div>
+        <button onclick="deletePost('${id}')">Delete</button>
+      `;
+      postsContainer.appendChild(div);
     }
 
     onValue(postsRef, snapshot => {
-      renderPosts(snapshot.val());
+      postsContainer.innerHTML = "";
+      const data = snapshot.val();
+      if (data) {
+        const sorted = Object.entries(data).sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+        sorted.forEach(([id, post]) => renderPost(id, post));
+      } else {
+        postsContainer.innerHTML = "<p>No posts available.</p>";
+      }
     });
 
-    function clearAllPosts() {
-      if (confirm('Are you sure you want to delete ALL posts?')) {
+    window.deletePost = function(id) {
+      if (confirm("Delete this post?")) {
+        remove(ref(db, `posts/${id}`));
+      }
+    };
+
+    window.clearAll = function() {
+      if (confirm("Clear all blog posts?")) {
         remove(postsRef);
       }
-    }
+    };
   </script>
 </body>
 </html>
